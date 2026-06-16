@@ -1,0 +1,6 @@
+flask>=3.0,<4.0
+python-dotenv>=1.0,<2.0
+python-binance>=1.0,<2.0
+websocket-client>=1.0,<2.0
+google-genai>=1.0,<2.0
+requests>=2.0,<3.0

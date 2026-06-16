@@ -1,0 +1,35 @@
+# Ambiente
+.env
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Banco de dados
+*.db
+*.sqlite
+
+# Dados sensíveis / gerados
+batalha.json
+historico_alocacao.json
+stdout.txt
+stderr.txt
+precos_medios.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

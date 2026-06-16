@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoFolio</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .dropdown-config { position: relative; display: inline-block; }
+        .dropdown-content { 
+            display: none; position: absolute; right: 0; top: calc(100% + 5px); 
+            background-color: var(--bg-panel); min-width: 200px; 
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.7); padding: 12px; z-index: 100; 
+            border: 1px solid var(--bg-hover); border-radius: 6px; flex-direction: column; gap: 10px;
+        }
+        .dropdown-content::before {
+            content: ""; position: absolute; bottom: 100%; left: 0; right: 0; height: 15px; background: transparent;
+        }
+        .dropdown-config:hover .dropdown-content { display: flex; }
+        .popup-patrimonio::before, .popup-dolar::before {
+            content: ""; position: absolute; bottom: 100%; left: -20px; right: -20px; height: 25px; background: transparent; z-index: 10;
+        }
+        .dolar-container:hover .popup-dolar { display: block !important; }
+    </style>
+</head>
+<body>
+
+<div class="layout-container">
+    <header class="header-bar">
+        <div class="header-left">
+            <h2 class="header-title">CryptoFolio</h2>
+            <div class="header-divider"></div>
+            <div class="patrimonio-container" onmouseenter="carregarMiniGraficoPatrimonio()">
+                <span class="text-muted-custom" style="font-size: 0.85rem;">Patrimonio Total <span id="btnPrivacidade" style="cursor: pointer; margin-left: 8px; font-size: 0.75rem;" onclick="alternarPrivacidade()">[Ocultar]</span></span>
+                <div style="display: flex; align-items: baseline; gap: 10px;">
+                    <h3 id="patrimonioTotal" class="valor-privado" style="margin: 0; font-size: 1.3rem;">R$ 0,00</h3>
+                    <span id="patrimonioPnl" class="valor-privado" style="font-size: 0.95rem; font-weight: 600;"></span>
+                </div>
+                
+                <div id="popupPatrimonio" class="popup-patrimonio">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: bold; margin-bottom: 5px;">Evolucao Historica (BRL)</div>
+                    <div id="miniGraficoContainer" style="width: 100%; height: 110px;"></div>
+                </div>
+            </div>
+            <div class="header-divider"></div>
+            <div class="seletor-ativo-wrapper" style="width:200px;">
+                <input type="text" id="inputBuscaAtivo" placeholder="Buscar ativo..." oninput="filtrarAtivos(this.value)" onfocus="mostrarListaAtivos()" autocomplete="off" style="width:100%;">
+                <div class="seletor-lista" id="seletorLista"></div>
+            </div>
+        </div>
+        <div class="header-right">
+            
+            <div class="dolar-container" style="position: relative; display: flex; align-items: center; gap: 8px; background: var(--bg-panel); padding: 5px 12px; border-radius: 4px; border: 1px solid var(--bg-hover); cursor: pointer;" onmouseenter="carregarMiniGraficoDolar()">
+                <span style="font-size: 0.85rem; color: var(--text-muted);">USDT/BRL:</span>
+                <span id="cotacaoDolar" style="font-size: 0.95rem; color: var(--accent-yellow); font-weight: bold;">R$ 0,00</span>
+                
+                <div id="popupDolar" class="popup-dolar" style="display: none; position: absolute; right: 0; top: calc(100% + 8px); background-color: var(--bg-panel); min-width: 250px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.7); padding: 12px; z-index: 100; border: 1px solid var(--bg-hover); border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: bold; margin-bottom: 5px;">Evolucao do Dolar (30 dias)</div>
+                    <div id="miniGraficoDolarContainer" style="width: 100%; height: 110px;"></div>
+                </div>
+            </div>
+
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                <span class="status-label">AO VIVO</span>
+            </div>
+
+            <div class="header-actions">
+                <button class="btn-icon" onclick="toggleMenu()" title="Mais opcoes">&#9881;</button>
+                <div class="header-dropdown" id="headerDropdown">
+                    <button onclick="fecharMenu(); verOrdensAbertas()">&#128203; Ordens Abertas</button>
+                    <button onclick="fecharMenu(); verAlertas()">&#128276; Meus Alertas</button>
+                    <button onclick="fecharMenu(); pedirAlocacaoIA()">&#128176; Alocar Caixa</button>
+                </div>
+            </div>
+            
+        </div>
+    </header>
+
+    <div class="grid-main">
+        
+        <div class="panel panel-chart">
+            
+            <div class="panel-header" style="padding-bottom: 8px; margin-bottom: 8px; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <h3 id="tituloGrafico" style="margin:0;font-size:1.1rem;">Selecione um Ativo</h3>
+                    <span id="precoAtualGrafico" style="font-size: 1.1rem; font-weight: 600;"></span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    
+                    <div class="dropdown-config">
+                        <button class="btn-icon" title="Ajustes visuais">&#9881;</button>
+                        <div class="dropdown-content">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem;">
+                                <input type="checkbox" id="checkLinhasIA" checked> Exibir Alvos IA
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem;">
+                                <input type="checkbox" id="checkSupRes" checked> Exibir Sup/Res (Zona)
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem;">
+                                <input type="checkbox" id="checkRSI"> Exibir RSI (14)
+                            </label>
+                            <hr style="border-color: #2b3139; margin: 2px 0;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Calcular Regua por:</span>
+                            <select id="modoRegua" class="select-regua" style="width: 100%;">
+                                <option value="medio">Preco Medio</option>
+                                <option value="atual">Preco Atual</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="width: 1px; height: 20px; background: var(--bg-hover);"></div>
+
+                    <button class="tf-btn" id="btn-tf-1m" onclick="mudarTimeframe('1m')">1m</button>
+                    <button class="tf-btn" id="btn-tf-15m" onclick="mudarTimeframe('15m')">15m</button>
+                    <button class="tf-btn" id="btn-tf-1h" onclick="mudarTimeframe('1h')">1H</button>
+                    <button class="tf-btn" id="btn-tf-4h" onclick="mudarTimeframe('4h')">4H</button>
+                    <button class="tf-btn tf-active" id="btn-tf-1d" onclick="mudarTimeframe('1d')">1D</button>
+                </div>
+            </div>
+
+            <div class="legend-panel" style="background: var(--bg-panel); border: 1px solid var(--bg-hover); border-radius: 4px 4px 0 0; padding: 10px; display: flex; gap: 15px; align-items: baseline; border-bottom: none;">
+                <span id="legendTicker" style="font-weight: bold; color: var(--accent-yellow); font-size: 1.1rem;">—</span>
+                <span id="legendTimeframe" style="color: var(--text-muted); font-size: 0.85rem; margin-right: 10px;">(1d)</span>
+            
+                <span class="text-muted-custom" style="font-size: 0.75rem;">Abertura</span>
+                <span id="legendOpen" style="font-weight: 600; font-size: 0.9rem;">0.00</span>
+            
+                <span class="text-muted-custom" style="font-size: 0.75rem;">Max</span>
+                <span id="legendHigh" style="font-weight: 600; font-size: 0.9rem;">0.00</span>
+            
+                <span class="text-muted-custom" style="font-size: 0.75rem;">Min</span>
+                <span id="legendLow" style="font-weight: 600; font-size: 0.9rem;">0.00</span>
+            
+                <span class="text-muted-custom" style="font-size: 0.75rem;">Fech</span>
+                <span id="legendClose" style="font-weight: 600; font-size: 0.9rem;">0.00</span>
+
+                <span id="legendChange" style="font-weight: bold; font-size: 0.9rem;">(0.00%)</span>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; flex-grow: 1; width: 100%; border: 1px solid var(--bg-hover); border-top: none; background: var(--bg-dark);">
+                
+                <div id="graficoWrapper" style="position: relative; flex: 3; min-height: 350px; width: 100%;">
+                    <div id="graficoVelas" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;"></div>
+                    <div id="reguaBinance" class="floating-ruler" style="display: none;"></div>
+                </div>
+
+                <div id="rsiWrapper" style="position: relative; flex: 1; min-height: 150px; width: 100%; border-top: 1px solid #2b3139; display: none;">
+                    <div style="position: absolute; top: 8px; left: 15px; z-index: 10; display: flex; gap: 15px; font-size: 0.85rem; pointer-events: none;">
+                        <span style="color: #b28dff; font-weight: bold;">RSI (14)</span>
+                        <span id="legendRSI" style="color: var(--text-main); font-weight: 600;">N/A</span>
+                    </div>
+                    <div id="graficoRSI" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel panel-ia">
+            <div class="panel-header" style="flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0; font-size: 1.1rem; color: var(--accent-yellow);">IA Quant</h3>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.8rem; color: var(--text-muted);"
+                           title="Ativar analise automatica ao detectar baleias">
+                        <input type="checkbox" id="checkAutoIA"> Auto
+                    </label>
+                    <button class="btn-yellow" onclick="pedirAlocacaoIA()" style="font-size:0.8rem;">Alocar Caixa</button>
+                    <button id="btnIA" class="btn-yellow" onclick="pedirAnaliseIA()">Analisar</button>
+                </div>
+            </div>
+            <div id="resultadoIA" style="flex-grow: 1; overflow-y: auto; padding-right: 5px; max-height: 500px;">
+                <div style="text-align: center; color: var(--text-muted); margin-top: 50px; font-size: 0.85rem;">
+                    Pressione <strong>Analisar</strong> para analisar sua carteira
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel" style="margin-top: 20px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: var(--accent-yellow);">P&L dos Ativos</h3>
+        </div>
+        <div id="termometroPnL" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Sincronizando forcas...</div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="table-wrapper">
+            <table class="pro-table">
+                <thead>
+                    <tr>
+                        <th onclick="ordenarTabela('simbolo')">Ativo</th>
+                        <th onclick="ordenarTabela('quantidade')">Quantidade</th>
+                        <th>Preco Medio <span title="Editar" style="cursor: pointer;"></span></th>
+                        <th onclick="ordenarTabela('preco_atual_brl')">Preco Atual</th>
+                        <th onclick="ordenarTabela('valor_total_brl')">Total (BRL)</th>
+                        <th onclick="ordenarTabela('pnl_percent')">P&L</th>
+                        <th>Sinal IA</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaCorpo">
+                    <tr><td colspan="7" style="text-align: center;">Sincronizando feed de dados...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="fecharModalPorFora(event)">
+    <div class="modal-box">
+        <h3><span id="modalTitulo"></span><button class="modal-close" onclick="fecharModal()">&times;</button></h3>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/grafico.js') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+</body>
+</html>
