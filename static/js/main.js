@@ -223,7 +223,7 @@ async function salvarEdicaoPreco(simbolo) {
     await fetch('/api/salvar_ajuste', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ simbolo, preco_usd: parseFloat(val) })
+        body: JSON.stringify({ simbolo, preco_brl: parseFloat(val) })
     });
     mostrarToast(`Preco medio de ${simbolo} atualizado!`, '#0ECB81');
     fecharModal();
@@ -494,7 +494,7 @@ async function pedirAnaliseIA() {
         });
 
         div.innerHTML = html + `</div>`;
-        buscarDados();
+        renderizarTabela();
 
     } catch (e) {
         clearInterval(t);
@@ -649,6 +649,11 @@ function renderizarTabela() {
             <td class="${corLucro}">
                 ${sinalEmoji} ${moeda.pnl_percent > 0 ? '+' : ''}${moeda.pnl_percent != null ? moeda.pnl_percent.toFixed(2) : '0.00'}% 
                 <span class="valor-privado">(${moeda.pnl_reais != null ? formatarDinheiro(moeda.pnl_reais, 'BRL') : formatarDinheiro(moeda.pnl_usd, 'USD')})</span>
+                ${!moeda.simbolo.includes("Caixa") && memoriaExtremosPnL[moeda.simbolo] ? `
+                <div style="font-size:0.65rem;margin-top:2px;opacity:0.7;display:flex;gap:6px;flex-wrap:wrap;">
+                    ${memoriaExtremosPnL[moeda.simbolo].max !== moeda.pnl_reais ? `<span style="color:#0ECB81;">▲ ${formatarDinheiro(memoriaExtremosPnL[moeda.simbolo].max)}</span>` : ''}
+                    ${memoriaExtremosPnL[moeda.simbolo].min !== moeda.pnl_reais ? `<span style="color:#F6465D;">▼ ${formatarDinheiro(memoriaExtremosPnL[moeda.simbolo].min)}</span>` : ''}
+                </div>` : ''}
             </td>
             
             <td class="${!moeda.simbolo.includes("Caixa") ? sinalColor : 'text-muted-custom'} font-weight-bold" style="font-size: 0.85rem;">

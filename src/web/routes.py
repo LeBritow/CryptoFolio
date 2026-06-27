@@ -12,7 +12,7 @@ from services.analista_ia import (
     processar_alocacao,
     calcular_indicadores_completos,
 )
-from database.manager import salvar_historico_patrimonio, obter_historico_patrimonio, criar_alerta_db, obter_alertas_db, deletar_alerta_db
+from database.manager import salvar_historico_patrimonio, obter_historico_patrimonio, criar_alerta_db, obter_alertas_db, deletar_alerta_db, obter_ajustes_manuais
 
 logger = logging.getLogger(__name__)
 api = Blueprint("api", __name__)
@@ -402,3 +402,26 @@ def ordens_abertas():
         })
     except Exception as e:
         return jsonify({"erro": str(e), "ordens": []})
+
+
+@api.route("/api/salvar_ajuste", methods=["POST"])
+def salvar_ajuste():
+    data = request.get_json()
+    simbolo = data.get("simbolo")
+    preco_brl = data.get("preco_brl")
+    if not simbolo or not preco_brl:
+        return jsonify({"erro": "Dados invalidos"}), 400
+    precos = _carregar_precos_medios()
+    precos[simbolo] = round(float(preco_brl), 2)
+    _salvar_precos_medios(precos)
+    logger.info("Preco medio manual salvo: %s = R$ %.2f", simbolo, float(preco_brl))
+    return jsonify({"ok": True})
+
+
+@api.route("/api/restaurar_preco/<simbolo>", methods=["POST"])
+def restaurar_preco(simbolo):
+    precos = _carregar_precos_medios()
+    precos.pop(simbolo.upper(), None)
+    _salvar_precos_medios(precos)
+    logger.info("Preco medio restaurado para Binance: %s", simbolo)
+    return jsonify({"ok": True})
